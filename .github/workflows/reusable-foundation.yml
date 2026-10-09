@@ -1,0 +1,51 @@
+name: reusable-foundation
+'on':
+  workflow_call: {}
+permissions:
+  contents: read
+  id-token: write
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+  TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET }}
+  TF_VAR_state_kms_key_arn: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+  TF_VAR_project_name: badminton-prod
+  TF_VAR_github_repository: chiendz11/badminton-infras
+  TF_VAR_github_environment: production
+  TF_VAR_existing_github_oidc_provider_arn: ${{ vars.GITHUB_OIDC_PROVIDER_ARN }}
+  TF_VAR_eks_public_access_cidrs: ${{ vars.EKS_PUBLIC_ACCESS_CIDRS }}
+  TF_VAR_rabbitmq_credentials_secret_arn: ${{ vars.RABBITMQ_BOOTSTRAP_SECRET_ARN }}
+  TF_VAR_redis_credentials_secret_arn: ${{ vars.REDIS_BOOTSTRAP_SECRET_ARN }}
+  TF_VAR_zone_name: ${{ vars.DNS_ZONE_NAME }}
+  TF_VAR_public_domain_name: ${{ vars.PUBLIC_DOMAIN_NAME }}
+  TF_VAR_admin_domain_name: ${{ vars.ADMIN_DOMAIN_NAME }}
+  TF_VAR_bootstrap_runtime_secret_arns: ${{ vars.BOOTSTRAP_RUNTIME_SECRET_ARNS }}
+  TF_VAR_mongodb_allowed_cidrs: ${{ vars.MONGODB_ALLOWED_CIDRS || '[]' }}
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.10.5
+        terraform_wrapper: false
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.TF_APPLY_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Use migrated bootstrap state
+      run: cp terraform/bootstrap/backend.tf.example terraform/bootstrap/backend.tf
+    - name: Initialize remote state
+      env:
+        STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        STATE_REGION: ${{ vars.AWS_REGION }}
+        STATE_KMS: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+      run: terraform -chdir=terraform/bootstrap init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="region=$STATE_REGION"
+        -backend-config="kms_key_id=$STATE_KMS"
+    - name: Refresh plan after protected approval
+      run: terraform -chdir=terraform/bootstrap plan -input=false -out=reviewed.tfplan
+    - name: Apply refreshed plan
+      run: terraform -chdir=terraform/bootstrap apply -input=false reviewed.tfplan

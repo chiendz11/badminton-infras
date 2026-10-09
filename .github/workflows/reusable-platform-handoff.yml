@@ -1,0 +1,42 @@
+name: Dispatch platform contract to GitOps
+'on':
+  workflow_call: {}
+permissions:
+  contents: read
+jobs:
+  handoff:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install contract dependencies
+      run: python -m pip install -r requirements.txt
+    - uses: actions/download-artifact@v4
+      with:
+        name: platform-contract-v1
+    - name: Validate handoff metadata
+      run: python scripts/validate_platform_contract.py platform-contract-v1.json
+    - name: Create scoped dispatch GitHub App token
+      id: dispatch
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ vars.AUTOMATION_APP_ID }}
+        private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+        owner: chiendz11
+        repositories: badminton-gitops
+    - name: Build dispatch body
+      run: |
+        python - <<'PY'
+        import json
+        from pathlib import Path
+        contract = json.loads(Path('platform-contract-v1.json').read_text())
+        Path('dispatch.json').write_text(json.dumps({'event_type':'platform-contract-v1','client_payload':{'contract':contract}}))
+        PY
+    - name: Dispatch reconcile intent (PR only)
+      env:
+        GH_TOKEN: ${{ steps.dispatch.outputs.token }}
+      run: gh api repos/chiendz11/badminton-gitops/dispatches --method POST --input dispatch.json

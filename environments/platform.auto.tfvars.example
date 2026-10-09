@@ -1,0 +1,6 @@
+state_bucket_name = "REPLACE_WITH_BOOTSTRAP_BUCKET"
+state_kms_key_arn = "REPLACE_WITH_STATE_KMS_KEY_ARN"
+eks_public_access_cidrs = ["203.0.113.10/32"]
+rabbitmq_credentials_secret_arn = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:bootstrap/badminton-rabbitmq-REPLACE"
+redis_credentials_secret_arn = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:bootstrap/badminton-redis-REPLACE"
+# mongodb_allowed_cidrs = ["203.0.113.20/32"] # replace with actual managed MongoDB destinations

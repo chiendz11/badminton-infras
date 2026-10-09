@@ -1,0 +1,7 @@
+aws_region = "ap-southeast-1"
+zone_name = "example.com"
+public_domain_name = "badminton.example.com"
+admin_domain_name = "admin.badminton.example.com"
+# existing_zone_id = "Z_REPLACE"
+# First new-zone apply: false, delegate NS, then change to true and apply again.
+wait_for_certificate_validation = true

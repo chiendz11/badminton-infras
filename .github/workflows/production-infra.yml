@@ -1,0 +1,92 @@
+name: Production infrastructure
+'on':
+  push:
+    branches:
+    - main
+    paths:
+    - terraform/**
+    - environments/**
+    - scripts/**
+    - contracts/**
+    - .github/workflows/**
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options:
+        - platform
+        - domain
+        - all
+        default: platform
+        required: true
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: production-infrastructure
+  cancel-in-progress: false
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      bootstrap: ${{ steps.roots.outputs.bootstrap }}
+      domain: ${{ steps.roots.outputs.domain }}
+      platform: ${{ steps.roots.outputs.platform }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - id: roots
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BEFORE_SHA: ${{ github.event.before }}
+        PHASE: ${{ inputs.phase }}
+      run: |
+        python - <<'PY'
+        import os, subprocess
+        event = os.environ['EVENT_NAME']
+        if event == 'workflow_dispatch':
+            roots = {'bootstrap','domain','platform'} if os.environ['PHASE'] == 'all' else {os.environ['PHASE']}
+        else:
+            before = os.environ['BEFORE_SHA']
+            if not before or before == '0' * 40:
+                paths = subprocess.check_output(['git','ls-files'],text=True).splitlines()
+            else:
+                paths = subprocess.check_output(['git','diff','--name-only',before,'HEAD'],text=True).splitlines()
+            roots = {root for root in ('bootstrap','domain','platform') if any(path.startswith('terraform/'+root+'/') for path in paths)}
+            if any(path.startswith('.github/workflows/') for path in paths): roots.update(('bootstrap','domain','platform'))
+            if any(path.startswith('environments/') or path.startswith('scripts/') or path.startswith('contracts/') for path in paths): roots.add('platform')
+        if 'bootstrap' in roots: roots.update(('domain','platform'))
+        if 'domain' in roots: roots.add('platform')
+        with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+            for root in ('bootstrap','domain','platform'): output.write(f'{root}={str(root in roots).lower()}\n')
+        PY
+  foundation:
+    needs:
+    - detect
+    if: needs.detect.outputs.bootstrap == 'true'
+    uses: ./.github/workflows/reusable-foundation.yml
+    secrets: inherit
+  domain:
+    needs:
+    - detect
+    - foundation
+    if: always() && needs.detect.outputs.domain == 'true' && (needs.foundation.result == 'success' || needs.foundation.result
+      == 'skipped')
+    uses: ./.github/workflows/reusable-domain.yml
+    secrets: inherit
+  platform:
+    needs:
+    - detect
+    - foundation
+    - domain
+    if: always() && needs.detect.outputs.platform == 'true' && (needs.foundation.result == 'success' || needs.foundation.result
+      == 'skipped') && (needs.domain.result == 'success' || needs.domain.result == 'skipped')
+    uses: ./.github/workflows/reusable-platform.yml
+    secrets: inherit
+  handoff:
+    needs:
+    - platform
+    if: needs.platform.result == 'success'
+    uses: ./.github/workflows/reusable-platform-handoff.yml
+    secrets: inherit

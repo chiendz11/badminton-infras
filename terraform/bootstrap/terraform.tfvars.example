@@ -1,0 +1,6 @@
+aws_region = "ap-southeast-1"
+project_name = "badminton-prod"
+state_bucket_name = "REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET"
+github_repository = "chiendz11/badminton-infras"
+github_environment = "production"
+# existing_github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
