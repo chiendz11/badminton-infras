@@ -1,0 +1,51 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: badminton-local
+servers: 1
+agents: 0
+image: __IMAGE_K3S__
+kubeAPI:
+  host: 127.0.0.1
+  hostIP: 127.0.0.1
+  hostPort: '6555'
+volumes:
+- volume: __LOCAL_STATE__:/var/lib/rancher/k3s/storage
+  nodeFilters:
+  - server:0
+- volume: __LOCAL_DATA__:/mnt/badminton-local:ro
+  nodeFilters:
+  - server:0
+options:
+  k3d:
+    wait: true
+    timeout: 180s
+    disableLoadbalancer: false
+  k3s:
+    extraArgs:
+    - arg: --disable=traefik
+      nodeFilters:
+      - server:0
+    - arg: --disable=servicelb
+      nodeFilters:
+      - server:0
+  kubeconfig:
+    updateDefaultKubeconfig: false
+    switchCurrentContext: false
+ports:
+- port: 127.0.0.1:18081:30081
+  nodeFilters:
+  - server:0
+- port: 127.0.0.1:18082:30082
+  nodeFilters:
+  - server:0
+- port: 127.0.0.1:18083:30083
+  nodeFilters:
+  - server:0
+- port: 127.0.0.1:19445:30443
+  nodeFilters:
+  - server:0
+- port: 127.0.0.1:15432:30432
+  nodeFilters:
+  - server:0
+

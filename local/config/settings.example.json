@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0.0",
+  "app_checkout": "../badminton-system",
+  "gitops_checkout": "../badminton-gitops",
+  "gitops_repository": "https://github.com/chiendz11/badminton-gitops.git",
+  "gitops_revision": "feat/local-demo"
+}
+
