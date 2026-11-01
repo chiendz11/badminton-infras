@@ -6,11 +6,17 @@ Application code and builds: [`chiendz11/badminton_system`](https://github.com/c
 
 ## Implemented
 
+- `local/`: Local development environment using **k3d v5.9.0 + Argo CD GitOps** following the MaintAI pattern. Includes cluster definition, tool/image pins, contract, and local runtime catalog.
+- `localdev/`: Python CLI suite (`init`, `up`, `secrets`, `build`, `import-images`, `bootstrap-argocd`, `migrate`, `status`, `delete`).
+- `terraform/local/`: 1-Click Terraform orchestration for the local k3d cluster and Argo CD GitOps setup.
 - `terraform/bootstrap`: versioned, private, KMS-encrypted S3 state; native state locks; shared/reusable GitHub OIDC provider; separate plan/apply roles.
 - `terraform/domain`: create/reuse Route53 public zone; ACM certificate for the public and admin hostnames; DNS validation.
 - `terraform/platform`: VPC with private workers and data, EKS, network policy support, EBS CSI, managed PostgreSQL, TLS/authenticated Valkey, private RabbitMQ, 11 immutable/scanned ECR repositories, secret containers, IRSA, application image publisher and read-only GitOps image verifier.
 - Argo CD Helm bootstrap and a separate root Application chart. No application Deployments/Services are managed by Terraform.
 - Non-secret platform contract builder, schema and validator, plus protected GitHub Actions apply/handoff workflows.
+
+👉 **[Xem Hướng dẫn Bật Demo Local tại đây](docs/DEMO_GUIDE.md)** hoặc xem chi tiết tại [Runbook Local](local/README.md).
+
 
 Three independent RDS instances cover Identity, Booking and Commerce. A fourth optional instance is enabled for the **current** AI runtime, which persists conversations and LangGraph checkpoints in its own PostgreSQL. AI never receives Booking database credentials. MongoDB uses an existing managed Atlas deployment, configured through per-service runtime secrets and an explicit destination CIDR allow-list; this repository does not create an Atlas account or substitute DocumentDB.
 
