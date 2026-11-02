@@ -12,60 +12,60 @@ Phiên bản hạ tầng local **1.0.0** cho hệ thống Badminton Manager V2, 
 
 | Nơi sở hữu | Trách nhiệm |
 |---|---|
-| `badminton-infras` (repo này) | Khởi tạo cụm `k3d-badminton-local`, kubeconfig riêng (`local/.local/kubeconfig`), namespaces (`badminton`, `argocd`), Kubernetes Secrets, bootstrap Argo CD, build và import local container images từ app source, thực thi DB migration jobs. |
-| `../badminton-gitops` | Khai báo trạng thái mong muốn (Desired State) trong Kubernetes: PostgreSQL datastore (`environments/local/platform`) và các microservices / frontend workloads (`environments/local/apps`). |
-| `../badminton-system` | Mã nguồn ứng dụng (Booking Core, AI Service, API Gateway, Web Frontend, Admin Frontend, Prisma migrations, Alembic migrations). |
+| `badminton-infras` (repo này) | Khởi tạo cụm `k3d-badminton-local`, kubeconfig riêng (`local/.local/kubeconfig`), namespaces (`badminton`, `argocd`), Kubernetes Secrets, bootstrap Argo CD, thực thi DB migration jobs. |
+| `../badminton-gitops` | Khai báo trạng thái mong muốn (Desired State) trong Kubernetes: PostgreSQL datastore (`environments/local/platform`) và các microservices / frontend workloads (`environments/local/apps`) kéo image từ GHCR. |
+| `../badminton-system` | Mã nguồn ứng dụng (Booking Core, AI Service, API Gateway, Web Frontend, Admin Frontend, Prisma migrations, Alembic migrations). CI tự động đóng gói và đẩy image lên GitHub Container Registry (`ghcr.io/chiendz11`). |
 
 ---
 
 ## 2. Chuẩn bị môi trường
 
 Yêu cầu trên máy tính cá nhân:
-- **Docker Engine**: `>= 24.0`
+- **Docker Engine**: `>= 24.0` (đang chạy: `sudo systemctl start docker`)
 - **k3d**: `v5.9.0`
 - **kubectl**: Tương thích Kubernetes `1.35` / `1.36`
 - **Python**: `>= 3.11`
-- **Terraform** (nếu dùng Terraform wrapper): `>= 1.5.0`
+- **Terraform**: `>= 1.5.0`
 
 ---
 
 ## 3. Khởi chạy nhanh (Runbook)
 
-### Cách 1: Sử dụng Terraform (1-Click Startup)
+### Cách 1: Sử dụng Terraform 1-Click (Khuyên dùng — Local Staging kéo từ GHCR)
+
+Hệ thống tự động kéo các Docker images Public từ `ghcr.io/chiendz11/badminton-...:latest` do CI/CD phát hành:
 
 ```bash
+# 1. Khởi tạo cụm k3d, nạp secrets và bootstrap Argo CD
 cd terraform/local
 terraform init
 terraform apply -auto-approve
+
+# 2. Quay lại thư mục gốc chạy migration và nạp seed data
+cd ../..
+make local-migrate
+
+# 3. Kiểm tra trạng thái các Pods
+make local-status
 ```
 
-### Cách 2: Sử dụng Makefile / Python CLI
+### Cách 2: Chế độ Phát triển Offline (Inner-Loop Dev)
 
-Từ thư mục gốc `badminton-infras`:
+Dành cho khi bạn đang sửa code dở dang trên máy và muốn kiểm thử ngay mà không cần commit/push lên GitHub:
 
 ```bash
-# 1. Khởi tạo môi trường ảo và private settings
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+# 1. Khởi tạo môi trường ảo và cụm k3d
 make local-init
-
-# 2. Khởi tạo cụm k3d badminton-local và secrets
 make local-up
 make local-secrets
 
-# 3. Build Docker images từ source badminton-system
+# 2. Build và nạp image trực tiếp từ mã nguồn local vào k3d cache
 make local-build
-
-# 4. Import images vào cụm k3d (không cần đẩy lên registry ngoài)
 make local-import
 
-# 5. Bootstrap Argo CD và các Applications
+# 3. Bootstrap Argo CD và chạy migrations
 make local-bootstrap-argocd
-
-# 6. Chạy Database Migrations và Seed data
 make local-migrate
-
-# 7. Kiểm tra trạng thái hệ thống
 make local-status
 ```
 
@@ -80,4 +80,3 @@ make local-status
 | **Admin Frontend**| `http://127.0.0.1:18083` | NodePort `30083` / Port `80` | Giao diện quản trị sân cầu lông |
 | **Argo CD UI** | `https://127.0.0.1:19445` | NodePort `30443` / Port `443` | Giao diện điều khiển GitOps Argo CD |
 | **PostgreSQL** | `127.0.0.1:15432` | NodePort `30432` / Port `5432` | CSDL Booking (`booking`) & AI (`ai`) |
-
