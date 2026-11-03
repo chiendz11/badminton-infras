@@ -74,6 +74,9 @@ def install_secrets():
         "api-gateway-secrets": {
             "JWT_SECRET": jwt_secret,
             "METRICS_TOKEN": metrics_token,
+        },
+        "jwt-secret": {
+            "JWT_SECRET": jwt_secret,
         }
     }
 

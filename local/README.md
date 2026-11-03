@@ -71,8 +71,15 @@ make local-status
 
 ---
 
-## 4. Các cổng dịch vụ Local
+## 4. Các điểm truy cập dịch vụ Local (Ingress ALB & Loopback)
 
+### Tên miền Ingress (Chuẩn ALB Routing - Khuyên dùng)
+Ánh xạ vào `/etc/hosts`: `172.24.0.2 web.badminton.local admin.badminton.local api.badminton.local`
+- **Web Frontend**: `http://web.badminton.local`
+- **Admin Frontend**: `http://admin.badminton.local`
+- **API Gateway**: `http://api.badminton.local/health/ready`
+
+### Cổng Host Loopback NodePort Truyền thống
 | Dịch vụ | Cổng Host Loopback | Cổng Container / NodePort | Mô tả |
 |---|---|---|---|
 | **API Gateway** | `http://127.0.0.1:18081` | NodePort `30081` / Port `8081` | REST Gateway điều phối Booking & AI |
@@ -80,3 +87,9 @@ make local-status
 | **Admin Frontend**| `http://127.0.0.1:18083` | NodePort `30083` / Port `80` | Giao diện quản trị sân cầu lông |
 | **Argo CD UI** | `https://127.0.0.1:19445` | NodePort `30443` / Port `443` | Giao diện điều khiển GitOps Argo CD |
 | **PostgreSQL** | `127.0.0.1:15432` | NodePort `30432` / Port `5432` | CSDL Booking (`booking`) & AI (`ai`) |
+
+---
+
+## 5. Tài liệu Kiến trúc Đám mây Mở rộng
+Xem chi tiết phân tích so sánh đối chiếu giữa môi trường k3d local và Production AWS tại:
+👉 [`docs/LOCAL_VS_AWS_CLOUD_PARITY.md`](../docs/LOCAL_VS_AWS_CLOUD_PARITY.md)

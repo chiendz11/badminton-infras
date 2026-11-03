@@ -217,6 +217,7 @@ def bootstrap_argocd():
         })
 
     kube("apply", "-f", "-", namespace="argocd", stdin=yaml.safe_dump_all([project, *applications]))
+    kube("patch", "svc", "argocd-server", "-n", "argocd", "-p", '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "protocol": "TCP", "targetPort": 8080}, {"name": "https", "port": 443, "protocol": "TCP", "targetPort": 8080, "nodePort": 30443}]}}')
     print(f"Argo CD bootstrapped; applications 'badminton-local-platform' and 'badminton-local-apps' configured.")
 
 

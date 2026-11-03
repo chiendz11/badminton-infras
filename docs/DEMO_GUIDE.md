@@ -78,18 +78,64 @@ kubectl get deployments,pods -n badminton
 
 ## 3. Trải nghiệm Demo trên Trình duyệt
 
-Sau khi hoàn tất, mở trình duyệt và truy cập các cổng loopback trên máy:
+Hệ thống hỗ trợ 2 phương thức truy cập: **Ingress Domain (Khuyên dùng - Chuẩn kiến trúc ALB)** và **Loopback Ports**:
 
-| Dịch vụ | URL Trải nghiệm | Mô tả chức năng |
+### Cách 1: Truy cập qua Tên miền Ingress (Mô phỏng AWS ALB)
+Thêm bản ghi phân giải tên miền local vào file `/etc/hosts` của máy (chạy một lần):
+```bash
+echo "172.24.0.2 web.badminton.local admin.badminton.local api.badminton.local badminton.local" | sudo tee -a /etc/hosts
+```
+
+Sau đó mở trình duyệt và truy cập:
+| Dịch vụ | Tên miền Ingress | Mô tả chức năng |
 | :--- | :--- | :--- |
-| **Giao diện Người dùng đặt sân (Web Frontend)** | [**http://127.0.0.1:18082**](http://127.0.0.1:18082) | Xem danh sách sân, lịch trống và trò chuyện với Trợ lý AI đặt sân. |
-| **Giao diện Quản trị viên (Admin Frontend)** | [**http://127.0.0.1:18083**](http://127.0.0.1:18083) | Quản lý bảng giá, duyệt booking và theo dõi thống kê doanh thu. |
-| **API Gateway Health Check** | `http://127.0.0.1:18081/health/ready` | Cổng kiểm tra sức khỏe của API Gateway điều phối. |
-| **Argo CD UI GitOps** | [**https://127.0.0.1:19445**](https://127.0.0.1:19445) | Bảng điều khiển GitOps quản lý trạng thái đồng bộ Pods và Datastores. |
+| **Web Portal (Đặt sân & AI Chat)** | [**http://web.badminton.local**](http://web.badminton.local) | Xem sân, lịch trống và trò chuyện trực tiếp với AI Groq (OpenAI-compatible). |
+| **Admin Portal (Quản trị)** | [**http://admin.badminton.local**](http://admin.badminton.local) | Quản lý bảng giá, duyệt booking và thống kê doanh thu. |
+| **API Gateway** | `http://api.badminton.local/health/ready` | Định tuyến ngược (Reverse Proxy) vào các microservices. |
+| **Argo CD UI GitOps** | [**https://127.0.0.1:19445**](https://127.0.0.1:19445) | Bảng điều khiển quản lý trạng thái đồng bộ Pods và Datastores. |
+
+*(Nếu không muốn sửa `/etc/hosts`, bạn có thể kiểm thử trực tiếp qua `curl --resolve web.badminton.local:80:172.24.0.2 http://web.badminton.local/`)*
+
+### Cách 2: Truy cập qua Cổng Loopback NodePort Truyền thống
+- **Web Frontend**: [http://127.0.0.1:18082](http://127.0.0.1:18082)
+- **Admin Frontend**: [http://127.0.0.1:18083](http://127.0.0.1:18083)
+- **API Gateway**: `http://127.0.0.1:18081/health/ready`
 
 ---
 
-## 4. Tùy chọn Phụ: Chế độ Phát triển Offline (Inner-Loop Dev)
+## 4. Kiểm tra Kiến trúc AWS Cloud Parity (Nâng cao)
+
+Hệ thống k3d local đã được tích hợp đầy đủ 4 tính năng chuẩn Production:
+
+### 1. Đồng bộ Secrets qua LocalStack (AWS Secrets Manager) & External Secrets Operator (ESO)
+Toàn bộ secrets nhạy cảm (`LLM_API_KEY`, `JWT_SECRET`, `AI_DATABASE_URL`) được lưu trong LocalStack và ESO tự động kéo về k8s:
+```bash
+export KUBECONFIG="$PWD/local/.local/kubeconfig"
+kubectl get externalsecrets -n badminton
+```
+*Trạng thái `STATUS: SecretSynced` và `READY: True` xác nhận bí mật được bảo vệ chuẩn AWS Secrets Manager.*
+
+### 2. Trợ lý AI thực tế (Real Groq LLM Inference)
+AI Service chạy với `AI_PROVIDER=openai-compatible`, `AI_OFFLINE=false` kết nối API Groq Cloud (`openai/gpt-oss-120b`). Bạn có thể kiểm tra log xử lý suy luận trực tiếp:
+```bash
+kubectl logs -n badminton deployment/ai-service -f
+```
+
+### 3. Tự động co giãn Pods (Horizontal Pod Autoscaler - HPA)
+Các microservices được cấu hình HPA với ngưỡng 70% CPU, tự động co giãn từ 2 đến 6 replicas:
+```bash
+kubectl get hpa -n badminton
+```
+
+### 4. Phân vùng mạng an toàn (Zero-Trust NetworkPolicies)
+Các chính sách mạng cô lập từng dịch vụ và chỉ mở các luồng dữ liệu hợp lệ:
+```bash
+kubectl get networkpolicies -n badminton
+```
+
+---
+
+## 5. Tùy chọn Phụ: Chế độ Phát triển Offline (Inner-Loop Dev)
 
 Nếu bạn đang sửa code dở dang trên máy, chưa muốn commit/push lên GitHub hoặc làm việc khi không có mạng, bạn có thể build và import image trực tiếp từ source máy:
 
