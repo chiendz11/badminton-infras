@@ -190,8 +190,8 @@ def bootstrap_argocd():
         "metadata": {"name": "badminton-local", "namespace": "argocd"},
         "spec": {
             "sourceRepos": [remote],
-            "destinations": [{"server": "https://kubernetes.default.svc", "namespace": NAMESPACE}],
-            "clusterResourceWhitelist": [{"group": "", "kind": "Namespace"}],
+            "destinations": [{"server": "https://kubernetes.default.svc", "namespace": "*"}],
+            "clusterResourceWhitelist": [{"group": "*", "kind": "*"}],
             "namespaceResourceBlacklist": [
                 {"group": "argoproj.io", "kind": "Application"},
                 {"group": "argoproj.io", "kind": "AppProject"}
@@ -212,9 +212,21 @@ def bootstrap_argocd():
                 "syncPolicy": {
                     "automated": {"prune": False, "selfHeal": True},
                     "syncOptions": ["CreateNamespace=false", "FailOnSharedResource=true"]
-                }
+                },
+                "ignoreDifferences": [
+                    {
+                        "group": "apps",
+                        "kind": "Deployment",
+                        "jsonPointers": ["/spec/replicas"]
+                    }
+                ]
             }
         })
+
+    for manifest in ["localstack.yaml", "cluster-secret-store.yaml", "badminton-ingress.yaml", "network-policies.yaml"]:
+        manifest_path = ROOT / "local/manifests" / manifest
+        if manifest_path.exists():
+            kube("apply", "-f", str(manifest_path))
 
     kube("apply", "-f", "-", namespace="argocd", stdin=yaml.safe_dump_all([project, *applications]))
     kube("patch", "svc", "argocd-server", "-n", "argocd", "-p", '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "protocol": "TCP", "targetPort": 8080}, {"name": "https", "port": 443, "protocol": "TCP", "targetPort": 8080, "nodePort": 30443}]}}')

@@ -125,6 +125,13 @@ spec:
     - protocol: TCP
       port: 5432
   - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
     - ipBlock:
         cidr: 0.0.0.0/0
         except:
@@ -178,6 +185,20 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -189,7 +210,7 @@ spec:
     matchExpressions:
     - key: app
       operator: In
-      values: ["postgres", "mongo"]
+      values: ["postgres", "mongo", "redis", "rabbitmq"]
   policyTypes:
   - Ingress
   ingress:
@@ -203,4 +224,24 @@ spec:
     - podSelector:
         matchLabels:
           app: content-service
-
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: localstack-policy
+  namespace: badminton
+spec:
+  podSelector:
+    matchLabels:
+      app: localstack
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 4566
