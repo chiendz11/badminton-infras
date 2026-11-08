@@ -106,13 +106,25 @@
       "migration": null
     },
     "identity-service": {
-      "dockerfile": "services/identity-service/Dockerfile",
+      "dockerfile": "services/identity/Dockerfile",
       "context": ".",
-      "port": 3000,
+      "command": [
+        "dumb-init",
+        "node",
+        "dist/main.js"
+      ],
+      "port": 8084,
       "kind": "Deployment",
-      "source_status": "stub",
-      "default_enabled": false,
-      "migration": null
+      "source_status": "implemented",
+      "default_enabled": true,
+      "migration": {
+        "dockerfile": "services/identity/Dockerfile",
+        "target": "migrate",
+        "command": [
+          "pnpm",
+          "prisma:migrate:deploy"
+        ]
+      }
     },
     "notification-service": {
       "dockerfile": "services/notification-service/Dockerfile",
