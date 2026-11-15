@@ -28,7 +28,7 @@ def initialize():
                 "identity_password": "identity_dev",
                 "admin_password": secrets.token_hex(24),
             },
-            "jwt_secret": "local-development-only-change-me-32-chars",
+            "jwt_secret": secrets.token_hex(32),
             "metrics_token": "local-monitoring-only",
             "internal_service_token": "local-internal-token",
             "llm_api_key": "gsk_localmockdemo",
@@ -95,10 +95,20 @@ def _load_optional_image_updater_creds() -> tuple[str, str] | None:
     return None
 
 
+def _load_or_upgrade_credentials() -> dict:
+    """Load local credentials and replace weak dev-placeholder JWT secrets if present."""
+    creds = read(LOCAL / "credentials.json")
+    current = str(creds.get("jwt_secret", ""))
+    if len(current) < 32 or "local-development" in current or "change-me" in current:
+        creds["jwt_secret"] = secrets.token_hex(32)
+        write_json(LOCAL / "credentials.json", creds)
+    return creds
+
+
 def seed_localstack_secrets():
     """Seed AWS Secrets Manager on LocalStack for parity with AWS Cloud."""
-    creds = read(LOCAL / "credentials.json")
-    jwt_secret = creds.get("jwt_secret", "local-development-only-change-me-32-chars")
+    creds = _load_or_upgrade_credentials()
+    jwt_secret = creds["jwt_secret"]
     booking_pw = creds["postgres"].get("booking_password", "booking_dev")
     ai_pw = creds["postgres"].get("ai_password", "ai_dev")
     identity_pw = creds["postgres"].get("identity_password", "identity_dev")
@@ -177,8 +187,8 @@ def install_secrets():
             },
         }])
 
-    creds = read(LOCAL / "credentials.json")
-    jwt_secret = creds.get("jwt_secret", "local-development-only-change-me-32-chars")
+    creds = _load_or_upgrade_credentials()
+    jwt_secret = creds["jwt_secret"]
     booking_pw = creds["postgres"].get("booking_password", "booking_dev")
     ai_pw = creds["postgres"].get("ai_password", "ai_dev")
     identity_pw = creds["postgres"].get("identity_password", "identity_dev")
