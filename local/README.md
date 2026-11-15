@@ -71,9 +71,12 @@ make local-status
 ### Host Loopback NodePorts
 | Dịch vụ | Host Loopback | Container / NodePort | Mô tả |
 |---|---|---|---|
-| **API Gateway** | `http://127.0.0.1:18081` | NodePort `30081` / `8081` | REST Gateway điều phối |
-| **Web Frontend** | `http://127.0.0.1:18082` | NodePort `30082` / `80` | Web người dùng |
-| **Admin Frontend** | `http://127.0.0.1:18083` | NodePort `30083` / `80` | Web quản trị |
+| **Web Frontend (HTTPS Ingress)** | `https://web.badminton.local` | Ingress HTTPS `443 -> 30444` (yêu cầu `/etc/hosts` trỏ `127.0.0.1`) | Web người dùng (same-origin `/api` + `Secure` refresh cookie) |
+| **Admin Frontend (HTTPS Ingress)** | `https://admin.badminton.local` | Ingress HTTPS `443 -> 30444` (yêu cầu `/etc/hosts` trỏ `127.0.0.1`) | Web quản trị (same-origin `/api` + `Secure` refresh cookie) |
+| **Mailpit UI (HTTPS Ingress)** | `https://mailpit.badminton.local` | Ingress HTTPS `443 -> 30444` (yêu cầu `/etc/hosts` trỏ `127.0.0.1`) | Hộp thư local bắt email xác thực từ `identity-service` |
+| **API Gateway** | `http://127.0.0.1:18081` | NodePort `30081` / `8081` | REST Gateway điều phối (legacy direct port) |
+| **Web Frontend (Direct)** | `http://127.0.0.1:18082` | NodePort `30082` / `80` | Web người dùng (legacy direct port) |
+| **Admin Frontend (Direct)** | `http://127.0.0.1:18083` | NodePort `30083` / `80` | Web quản trị (legacy direct port) |
 | **Argo CD UI** | `https://127.0.0.1:19445` | NodePort `30443` / `443` | Argo CD UI |
 | **PostgreSQL** | `127.0.0.1:15432` | NodePort `30432` / `5432` | CSDL Booking & AI |
 

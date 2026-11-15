@@ -7,6 +7,14 @@
   "api_server": "https://127.0.0.1:6555",
   "argocd_namespace": "argocd",
   "ports": {
+    "ingress_http": [
+      80,
+      30080
+    ],
+    "ingress_https": [
+      443,
+      30444
+    ],
     "gateway": [
       18081,
       30081

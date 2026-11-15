@@ -33,6 +33,12 @@ options:
     updateDefaultKubeconfig: false
     switchCurrentContext: false
 ports:
+- port: 127.0.0.1:80:30080
+  nodeFilters:
+  - server:0
+- port: 127.0.0.1:443:30444
+  nodeFilters:
+  - server:0
 - port: 127.0.0.1:18081:30081
   nodeFilters:
   - server:0

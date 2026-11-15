@@ -117,10 +117,7 @@ def build(args):
 
     for name in names:
         val = catalog[name]
-        extra = []
-        if name in {"web", "admin"}:
-            extra = ["--build-arg", "VITE_API_GATEWAY_URL=http://127.0.0.1:18081"]
-        image_receipt(name, source, val["dockerfile"], val["context"], extra, args.allow_dirty)
+        image_receipt(name, source, val["dockerfile"], val["context"], [], args.allow_dirty)
 
         if name == "booking-core" and val.get("migration") and val["migration"].get("target"):
             mig_extra = ["--target", val["migration"]["target"]]
@@ -362,6 +359,39 @@ def migrate():
     print(f"Waiting for {ai_job_name} to finish...")
     kube("wait", "--for=condition=complete", f"job/{ai_job_name}", "--timeout=300s", namespace=NAMESPACE)
     print("AI Service migrations finished.")
+
+    id_receipt_path = LOCAL / "receipts" / "identity-service-migrations.json"
+    if id_receipt_path.is_file():
+        id_receipt = read(id_receipt_path)
+        id_job_name = f"identity-migrate-{uuid.uuid4().hex[:8]}"
+        id_job = {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "metadata": {"name": id_job_name, "namespace": NAMESPACE, "labels": {"app": "identity-service"}},
+            "spec": {
+                "backoffLimit": 1,
+                "activeDeadlineSeconds": 300,
+                "ttlSecondsAfterFinished": 86400,
+                "template": {
+                    "metadata": {"labels": {"app": "identity-service"}},
+                    "spec": {
+                        "restartPolicy": "Never",
+                        "automountServiceAccountToken": False,
+                        "containers": [{
+                            "name": "migrate",
+                            "image": id_receipt["image"],
+                            "imagePullPolicy": "Never",
+                            "command": ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"],
+                            "envFrom": [{"secretRef": {"name": "identity-service-secrets"}}],
+                        }],
+                    },
+                },
+            },
+        }
+        apply([id_job], namespace=NAMESPACE)
+        print(f"Waiting for {id_job_name} to finish...")
+        kube("wait", "--for=condition=complete", f"job/{id_job_name}", "--timeout=300s", namespace=NAMESPACE)
+        print("Identity Service migrations finished.")
 
 
 def forward(args):
