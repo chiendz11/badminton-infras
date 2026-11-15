@@ -7,6 +7,7 @@ import argparse
 import getpass
 import hashlib
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -21,7 +22,7 @@ from .common import (
     digest, kube, private_write, read, repository_url, run, settings,
     source_identity, validate_context, write_json,
 )
-from .credentials import initialize, install_secrets
+from .credentials import initialize, install_secrets, seed_image_updater_secret, seed_localstack_secrets
 
 
 def pins():
@@ -197,7 +198,7 @@ def _load_pinned_manifest(upstream):
 
 
 def install_image_updater_pat(args):
-    """Create Secret/argocd-image-updater-git-creds in argocd namespace via stdin."""
+    """Store Image Updater PAT privately (0600) and seed LocalStack Secrets Manager via stdin."""
     validate_context()
     username = args.username.strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", username):
@@ -213,25 +214,15 @@ def install_image_updater_pat(args):
         token = getpass.getpass("GitHub Fine-grained PAT: ").strip()
     if not token or len(token) > 4096 or any(ch.isspace() for ch in token):
         raise ValueError("GitHub Fine-grained PAT is empty or invalid")
-    secret_doc = {
-        "apiVersion": "v1",
-        "kind": "Secret",
-        "metadata": {
-            "name": "argocd-image-updater-git-creds",
-            "namespace": "argocd",
-            "labels": {"badminton.io/owner": "local-bootstrap"},
-        },
-        "type": "Opaque",
-        "stringData": {"username": username, "password": token},
-    }
-    kube(
-        "apply",
-        "-f",
-        "-",
-        namespace="argocd",
-        stdin=yaml.safe_dump_all([secret_doc], sort_keys=False),
+    for filename, value in (("image-updater-username", username), ("image-updater-pat", token)):
+        target = LOCAL / "secrets" / filename
+        private_write(target, value + "\n")
+        os.chmod(target, 0o600)
+    seed_image_updater_secret(username, token)
+    print(
+        "ExternalSecret argocd/argocd-image-updater-git-creds will sync from LocalStack "
+        "badminton/prod/argocd-image-updater-git-creds."
     )
-    print("Secret argocd-image-updater-git-creds installed in namespace argocd via stdin (value not logged).")
 
 
 def bootstrap_argocd():
@@ -251,6 +242,7 @@ def bootstrap_argocd():
     required = (
         "applications/local/kustomization.yaml",
         "applications/local/image-updater.yaml",
+        "applications/local/image-updater-git-creds.yaml",
         "environments/local/platform/kustomization.yaml",
         "environments/local/apps/kustomization.yaml",
     )
@@ -290,6 +282,8 @@ def bootstrap_argocd():
         manifest_path = ROOT / "local/manifests" / manifest
         if manifest_path.exists():
             kube("apply", "-f", str(manifest_path))
+    kube("rollout", "status", "deployment/localstack", "--timeout=120s", namespace="localstack")
+    seed_localstack_secrets()
 
     local_apps = gitops / "applications/local"
     kube("apply", "-k", str(local_apps), namespace="argocd")
@@ -423,7 +417,7 @@ def main(argv=None):
     sub.add_parser("prepare")
 
     pat_cmd = sub.add_parser("image-updater-pat")
-    pat_cmd.add_argument("--username", required=True)
+    pat_cmd.add_argument("--username", default="chiendz11")
     pat_cmd.add_argument("--token-file")
     pat_cmd.add_argument("--stdin", action="store_true")
 

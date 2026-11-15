@@ -14,10 +14,10 @@ Read `README.md`, `docs/TERRAFORM_DEPENDENCIES.md`, `docs/BOOTSTRAP.md`, and `lo
    - Terraform owns cloud resources, EKS, IAM, and Argo CD Helm bootstrap ONLY.
    - `../badminton-gitops` owns all in-cluster add-ons (`external-secrets`, `argocd-image-updater`, `aws-load-balancer-controller`, etc.), `ClusterSecretStore` (prod), `ExternalSecrets`, `NetworkPolicies`, and application manifests.
    - Do not apply the same Kubernetes resource or CRD from both Terraform/`localdev` and `badminton-gitops`.
-   - Specifically for local `k3d`: `badminton-infras/local/manifests/cluster-secret-store.yaml` owns `Secret/localstack-creds` and `ClusterSecretStore/aws-secrets-manager`, whereas `badminton-gitops` owns `local/platform/*`, `environments/local/apps/*`, and `ImageUpdater` CRDs.
+   - `badminton-infras/local/manifests/cluster-secret-store.yaml` owns `Secret/localstack-creds`, `ClusterSecretStore/aws-secrets-manager` (for `badminton`), and `ClusterSecretStore/aws-secrets-manager-argocd` (for `argocd`); `badminton-gitops` owns `ExternalSecret/argocd-image-updater-git-creds`, `local/platform/*`, `environments/local/apps/*`, and `ImageUpdater` CRDs.
 3. **Zero Plaintext Secrets in Git or State**:
    - Never commit `.tfvars` with real values, `terraform.tfstate*`, kubeconfigs (`local/.local/*`), PAT tokens, or `aws_secretsmanager_secret_version`.
-   - Local Image Updater PATs must only be written imperatively to the cluster (`python3 -m localdev image-updater-pat --token ...` or `make local-image-updater-pat`).
+   - Local Image Updater PATs must be seeded out-of-band into LocalStack Secrets Manager (`badminton/prod/argocd-image-updater-git-creds` via `make local-image-updater-pat` / `python3 -m localdev image-updater-pat`) and synced declaratively via ESO `ExternalSecret`, matching AWS Secrets Manager in Production.
 4. **Source Synchronization**:
    - Do not alter `../MaintAI-gitops` or `../Maint-infrastructure`.
-   - `local/versions/app-source.lock.json` tracks the reviewed `chiendz11/badminton_system` commit (`38b4a74cea88d69c271b3a4608b5e38754797b86`).
+   - `local/versions/app-source.lock.json` tracks the reviewed `chiendz11/badminton_system` commit (`fd9f033cc38a1312dc2eb4d5afcb0445fcf94668`).

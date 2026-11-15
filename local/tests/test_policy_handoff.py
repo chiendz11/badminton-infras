@@ -1,5 +1,6 @@
-"""The local operator verifies receipts and injects Image Updater PAT safely via stdin."""
+"""The local operator verifies receipts and seeds Image Updater PAT into LocalStack via stdin."""
 
+import json
 import os
 import tempfile
 import unittest
@@ -7,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from localdev import cli
+from localdev import cli, credentials
 
 
 class PolicyHandoff(unittest.TestCase):
@@ -40,15 +41,23 @@ class PolicyHandoff(unittest.TestCase):
                 )
 
         os.chmod(token_file, 0o600)
-        with patch.object(cli, "validate_context"), patch.object(cli, "kube") as mock_kube:
+        with (
+            patch.object(cli, "LOCAL", self.root),
+            patch.object(credentials, "LOCAL", self.root),
+            patch.object(cli, "validate_context"),
+            patch.object(credentials, "kube") as mock_kube,
+        ):
             cli.install_image_updater_pat(
                 SimpleNamespace(username="chiendz11", token_file=str(token_file), stdin=False)
             )
             mock_kube.assert_called_once()
-            self.assertEqual(mock_kube.call_args.kwargs["namespace"], "argocd")
-            manifest = mock_kube.call_args.kwargs["stdin"]
-            self.assertIn("argocd-image-updater-git-creds", manifest)
-            self.assertIn("github_pat_example_secret_12345", manifest)
+            self.assertEqual(mock_kube.call_args.kwargs["namespace"], "localstack")
+            payload = json.loads(mock_kube.call_args.kwargs["stdin"])
+            self.assertIn("badminton/prod/argocd-image-updater-git-creds", payload)
+            entry = payload["badminton/prod/argocd-image-updater-git-creds"]
+            self.assertEqual(entry["username"], "chiendz11")
+            self.assertEqual(entry["password"], "github_pat_example_secret_12345")
+            self.assertEqual((self.root / "secrets/image-updater-pat").stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

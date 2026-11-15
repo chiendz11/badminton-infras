@@ -3,15 +3,21 @@
 import json
 import os
 import secrets
+from pathlib import Path
 
 from .common import CONTRACT, LOCAL, NAMESPACE, ROOT, apply, kube, read, write_json
+
+DEFAULT_PAT_PATH = ROOT.parent / "PAT.txt"
+DEFAULT_GITOPS_USERNAME = "chiendz11"
+IMAGE_UPDATER_SECRET_NAME = "badminton/prod/argocd-image-updater-git-creds"
 
 
 def initialize():
     LOCAL.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(LOCAL, 0o700)
-    for area in ("state", "receipts", "storage"):
+    for area in ("state", "receipts", "storage", "secrets"):
         (LOCAL / area).mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(LOCAL / area, 0o700)
     if not (LOCAL / "settings.json").exists():
         write_json(LOCAL / "settings.json", read(ROOT / "local/config/settings.example.json"))
     if not (LOCAL / "credentials.json").exists():
@@ -33,6 +39,60 @@ def initialize():
             },
         }
         write_json(LOCAL / "credentials.json", value)
+
+
+def _read_private_token_file(path: Path) -> str:
+    if path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077:
+        raise ValueError(f"Private secret file must be a regular file with mode 600: {path}")
+    token = path.read_text(encoding="utf-8").strip()
+    if not token or len(token) > 4096 or any(ch.isspace() for ch in token):
+        raise ValueError(f"Secret token in {path} is empty or contains invalid whitespace")
+    return token
+
+
+def _put_localstack_secrets(documents: dict[str, dict[str, str]]) -> None:
+    """Write secret payloads to LocalStack Secrets Manager via stdin (never argv or logs)."""
+    program = """import sys,json,boto3
+c=boto3.client('secretsmanager',endpoint_url='http://localhost:4566',region_name='ap-southeast-1',aws_access_key_id='test',aws_secret_access_key='test')
+for name,value in json.load(sys.stdin).items():
+ payload=json.dumps(value)
+ try:c.create_secret(Name=name,SecretString=payload)
+ except c.exceptions.ResourceExistsException:c.put_secret_value(SecretId=name,SecretString=payload)
+print('LocalStack Secrets Manager values synchronized (values not printed).')
+"""
+    kube(
+        "exec", "-i", "deployment/localstack", "--", "python3", "-c", program,
+        namespace="localstack",
+        stdin=json.dumps(documents),
+        capture=True,
+    )
+
+
+def seed_image_updater_secret(username: str, token: str) -> None:
+    """Seed LocalStack Secrets Manager for ESO ExternalSecret argocd/argocd-image-updater-git-creds."""
+    if not username or any(ch.isspace() for ch in username) or not token or any(ch.isspace() for ch in token):
+        raise ValueError("GitHub username and PAT must be non-empty single-line strings")
+    _put_localstack_secrets({
+        IMAGE_UPDATER_SECRET_NAME: {
+            "username": username,
+            "password": token,
+        },
+    })
+    print(f"Secret {IMAGE_UPDATER_SECRET_NAME} seeded in LocalStack Secrets Manager via stdin (value not logged).")
+
+
+def _load_optional_image_updater_creds() -> tuple[str, str] | None:
+    local_pat = LOCAL / "secrets/image-updater-pat"
+    local_user = LOCAL / "secrets/image-updater-username"
+    if local_pat.exists() or local_pat.is_symlink():
+        token = _read_private_token_file(local_pat)
+        username = DEFAULT_GITOPS_USERNAME
+        if local_user.exists() or local_user.is_symlink():
+            username = _read_private_token_file(local_user)
+        return username, token
+    if DEFAULT_PAT_PATH.exists() or DEFAULT_PAT_PATH.is_symlink():
+        return DEFAULT_GITOPS_USERNAME, _read_private_token_file(DEFAULT_PAT_PATH)
+    return None
 
 
 def seed_localstack_secrets():
@@ -92,25 +152,15 @@ def seed_localstack_secrets():
         },
     }
 
+    pat_creds = _load_optional_image_updater_creds()
+    if pat_creds is not None:
+        secrets_to_seed[IMAGE_UPDATER_SECRET_NAME] = {
+            "username": pat_creds[0],
+            "password": pat_creds[1],
+        }
+
     try:
-        for sec_name, sec_dict in secrets_to_seed.items():
-            payload = json.dumps(sec_dict)
-            try:
-                kube(
-                    "exec", "-n", "localstack", "deployment/localstack", "--",
-                    "awslocal", "secretsmanager", "create-secret",
-                    "--name", sec_name,
-                    "--secret-string", payload,
-                    capture=True,
-                )
-            except Exception:
-                kube(
-                    "exec", "-n", "localstack", "deployment/localstack", "--",
-                    "awslocal", "secretsmanager", "put-secret-value",
-                    "--secret-id", sec_name,
-                    "--secret-string", payload,
-                    capture=True,
-                )
+        _put_localstack_secrets(secrets_to_seed)
         print("LocalStack AWS Secrets Manager seeded successfully with parity secrets.")
     except Exception as exc:
         print(f"Warning: Could not seed LocalStack secrets: {exc}")

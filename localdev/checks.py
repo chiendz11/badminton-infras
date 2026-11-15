@@ -53,6 +53,8 @@ def check(app=None, companion=None) -> None:
         required = (
             "applications/local/kustomization.yaml",
             "applications/local/image-updater.yaml",
+            "applications/local/image-updater-git-creds.yaml",
+            "platform/secrets/image-updater-git-creds.yaml",
             "environments/local/platform/kustomization.yaml",
             "environments/local/observability/kustomization.yaml",
             "environments/local/apps/kustomization.yaml",

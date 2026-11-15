@@ -14,7 +14,7 @@ Phiên bản hạ tầng local cho hệ thống **Badminton Manager V2**, đồn
 |---|---|
 | `badminton-infras` (repo này) | Khởi tạo cụm `k3d-badminton-local`, kubeconfig riêng (`local/.local/kubeconfig`), namespaces (`badminton`, `argocd`, `observability`, `external-secrets`, `ingress-nginx`), LocalStack + `ClusterSecretStore/aws-secrets-manager`, Secrets Manager seeds, bootstrap Argo CD, secret `argocd-image-updater-git-creds` (`make local-image-updater-pat`), và chạy DB migrations. |
 | `../badminton-gitops` | Pure Declarative Kustomize (`bootstrap/local` -> `applications/local`): Local PostgreSQL/Mongo/Redis/RabbitMQ, Ingress + NetworkPolicies, `external-secrets` / `ingress-nginx` / `argocd-image-updater` addons, `ImageUpdater` CRD `badminton-local`, và toàn bộ `environments/local/apps`. |
-| `../badminton-system` (`38b4a74cea88d69c271b3a4608b5e38754797b86`) | Mã nguồn ứng dụng + Dockerfile + migrations. CI đóng gói và đẩy image tag bất biến `sha-<40>` lên GHCR (`ghcr.io/chiendz11/badminton-*`). |
+| `../badminton-system` (`fd9f033cc38a1312dc2eb4d5afcb0445fcf94668`) | Mã nguồn ứng dụng + Dockerfile + migrations. CI đóng gói và đẩy image tag bất biến `sha-<40>` lên GHCR (`ghcr.io/chiendz11/badminton-*`). |
 
 ---
 
@@ -37,8 +37,8 @@ Phiên bản hạ tầng local cho hệ thống **Badminton Manager V2**, đồn
 terraform -chdir=terraform/local init
 terraform -chdir=terraform/local apply -auto-approve
 
-# 2. Nạp Fine-grained GitHub PAT cho Argo CD Image Updater (tự động mở PR vào badminton-gitops khi có image sha-* mới)
-GITHUB_PAT=ghp_xxx make local-image-updater-pat
+# 2. Nạp Fine-grained GitHub PAT vào LocalStack Secrets Manager (ESO sync -> argocd/argocd-image-updater-git-creds)
+make local-image-updater-pat PAT_FILE=../PAT.txt
 
 # 3. Chạy migrations & kiểm tra trạng thái
 make local-migrate
