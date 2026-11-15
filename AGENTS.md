@@ -20,4 +20,4 @@ Read `README.md`, `docs/TERRAFORM_DEPENDENCIES.md`, `docs/BOOTSTRAP.md`, and `lo
    - Local Image Updater PATs must be seeded out-of-band into LocalStack Secrets Manager (`badminton/prod/argocd-image-updater-git-creds` via `make local-image-updater-pat` / `python3 -m localdev image-updater-pat`) and synced declaratively via ESO `ExternalSecret`, matching AWS Secrets Manager in Production.
 4. **Source Synchronization**:
    - Do not alter `../MaintAI-gitops` or `../Maint-infrastructure`.
-   - `local/versions/app-source.lock.json` tracks the reviewed `chiendz11/badminton_system` commit (`fd9f033cc38a1312dc2eb4d5afcb0445fcf94668`).
+   - `local/versions/app-source.lock.json` tracks the reviewed `chiendz11/badminton_system` commit (`38b4a74cea88d69c271b3a4608b5e38754797b86`).

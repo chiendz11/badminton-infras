@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "source_repository": "chiendz11/badminton_system",
-  "source_git_sha": "fd9f033cc38a1312dc2eb4d5afcb0445fcf94668",
+  "source_git_sha": "38b4a74cea88d69c271b3a4608b5e38754797b86",
   "captured_on": "2026-11-15",
   "files": {
     "services/booking-core/Dockerfile": "a37977e0288a9d7190129be151d7a93f6d8193e3d158ee6852e47f8417a208fc",
