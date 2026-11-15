@@ -23,11 +23,12 @@ locals {
   azs               = slice(data.aws_availability_zones.available.names, 0, var.az_count)
   postgres_services = merge({ identity = "identity", booking = "booking", commerce = "commerce" }, var.enable_ai_database ? { ai = "ai" } : {})
   ecr_services      = toset(["web", "admin", "api-gateway", "identity-service", "booking-core", "commerce-service", "social-service", "content-service", "notification-service", "storage-service", "ai-service"])
-  secret_names      = toset(["payos", "cloudinary", "llm", "internal-service-auth", "rabbitmq", "redis", "mongodb", "oauth", "api-gateway-runtime", "identity-service-runtime", "booking-core-runtime", "commerce-service-runtime", "social-service-runtime", "content-service-runtime", "notification-service-runtime", "storage-service-runtime", "ai-service-runtime"])
+  secret_names      = toset(["payos", "cloudinary", "llm", "internal-service-auth", "rabbitmq", "redis", "mongodb", "oauth", "api-gateway-runtime", "identity-service-runtime", "booking-core-runtime", "commerce-service-runtime", "social-service-runtime", "content-service-runtime", "notification-service-runtime", "storage-service-runtime", "ai-service-runtime", "argocd-image-updater-git-creds"])
   service_accounts = {
     external_secrets             = { namespace = "external-secrets", name = "external-secrets" }
     external_dns                 = { namespace = "external-dns", name = "external-dns" }
     aws_load_balancer_controller = { namespace = "kube-system", name = "aws-load-balancer-controller" }
     ebs_csi                      = { namespace = "kube-system", name = "ebs-csi-controller-sa" }
+    image_updater                = { namespace = "argocd", name = "argocd-image-updater-controller" }
   }
 }

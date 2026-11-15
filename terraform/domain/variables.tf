@@ -8,5 +8,5 @@ variable "existing_zone_id" {
 }
 variable "wait_for_certificate_validation" {
   type    = bool
-  default = true
+  default = false
 }

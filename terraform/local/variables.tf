@@ -12,7 +12,7 @@ variable "gitops_repository" {
 
 variable "gitops_revision" {
   type        = string
-  default     = "feat/initial-implementation"
+  default     = "main"
   description = "Git revision for Argo CD applications in badminton-gitops"
 }
 

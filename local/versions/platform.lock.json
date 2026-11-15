@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "version": "1.0.0",
-  "as_of": "2026-11-01",
+  "as_of": "2026-11-15",
   "k3d_version": "5.9.0",
   "kubernetes_version": "1.35.5",
   "images": {
@@ -29,6 +29,19 @@
       "quay.io/argoproj/argocd:v3.2.0": "quay.io/argoproj/argocd:v3.2.0@sha256:3c9b3b33a7e6c9c56a9d8417af1845afc516f714941962208b125017bbc1e4b1"
     },
     "image_pins_complete": true
+  },
+  "argocd_image_updater": {
+    "version": "1.5.0",
+    "url": "https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/v1.5.0/config/install.yaml",
+    "sha256": "18d6b432001fb220e365d7372b807651d9b2ff6e8f7a6efde20deb9f4287f62c",
+    "images": {
+      "quay.io/argoprojlabs/argocd-image-updater:v1.5.0": "quay.io/argoprojlabs/argocd-image-updater:v1.5.0@sha256:0351b52564e9aff2af4ab9a66314e479dee24432779e64ea61e2de8fca27997b"
+    },
+    "image_pins_complete": true
+  },
+  "kubectl": {
+    "version": "1.35.5",
+    "linux_amd64_url": "https://dl.k8s.io/release/v1.35.5/bin/linux/amd64/kubectl",
+    "sha256": "90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224"
   }
 }
-

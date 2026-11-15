@@ -44,6 +44,14 @@ variable "kubernetes_version" {
   type    = string
   default = "1.35"
 }
+variable "eks_addon_versions" {
+  type        = map(string)
+  description = "Exact AWS region/Kubernetes-compatible builds, with no most_recent resolution."
+  validation {
+    condition     = alltrue([for key in ["coredns", "kube-proxy", "vpc-cni", "aws-ebs-csi-driver", "eks-pod-identity-agent"] : can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+-eksbuild\\.[0-9]+$", var.eks_addon_versions[key]))])
+    error_message = "Pin all five EKS add-ons to exact eksbuild versions."
+  }
+}
 variable "eks_public_access_cidrs" {
   type = list(string)
   validation {
@@ -82,6 +90,13 @@ variable "db_backup_retention_days" {
 variable "db_multi_az" {
   type    = bool
   default = false
+}
+variable "postgres_engine_version" {
+  type = string
+  validation {
+    condition     = can(regex("^16\\.[0-9]+$", var.postgres_engine_version))
+    error_message = "Pin an exact region-supported PostgreSQL 16 minor."
+  }
 }
 variable "enable_ai_database" {
   type    = bool
@@ -126,18 +141,6 @@ variable "app_repository" {
 variable "gitops_repository" {
   type    = string
   default = "chiendz11/badminton-gitops"
-}
-variable "gitops_revision" {
-  type    = string
-  default = "main"
-}
-variable "enable_argocd_bootstrap" {
-  type    = bool
-  default = true
-}
-variable "enable_gitops_root" {
-  type    = bool
-  default = false
 }
 variable "rabbitmq_credentials_secret_arn" {
   type = string

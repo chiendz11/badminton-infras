@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "architecture_revision": "badminton-local-gitops/1.0.0",
+  "architecture_revision": "badminton-local-gitops/2.0.0",
   "namespace": "badminton",
   "cluster_name": "badminton-local",
   "context": "k3d-badminton-local",
@@ -30,6 +30,7 @@
   },
   "applications": {
     "platform": "environments/local/platform",
+    "observability": "environments/local/observability",
     "apps": "environments/local/apps"
   },
   "database": {
@@ -38,7 +39,8 @@
     "booking_db": "booking",
     "booking_user": "booking",
     "ai_db": "ai",
-    "ai_user": "ai"
+    "ai_user": "ai",
+    "identity_db": "identity",
+    "identity_user": "identity"
   }
 }
-

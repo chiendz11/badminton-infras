@@ -1,44 +1,38 @@
 # GitHub Actions configuration
 
-The workflows are committed code, not executed infrastructure changes. First bootstrap/migrate state locally. Create an environment named `production`, restrict it to main, and configure approval protection before enabling apply workflows. Terraform apply uses the environment OIDC subject `repo:chiendz11/badminton-infras:environment:production`.
-
-## Variables
-
-Set these repository variables (PR plan jobs do not use the protected apply environment):
-
-| Variable | Value |
-| --- | --- |
-| AWS_REGION | ap-southeast-1 |
-| TF_STATE_BUCKET | Bootstrap-created bucket |
-| TF_STATE_KMS_KEY_ARN | Bootstrap-created KMS ARN |
-| TF_PLAN_ROLE_ARN | Bootstrap plan role |
-| TF_APPLY_ROLE_ARN | Bootstrap apply role |
-| GITHUB_OIDC_PROVIDER_ARN | Created/reused account provider ARN |
-| EKS_PUBLIC_ACCESS_CIDRS | JSON list of trusted stable runner/operator CIDRs |
-| RABBITMQ_BOOTSTRAP_SECRET_ARN | Existing broker provisioning secret |
-| REDIS_BOOTSTRAP_SECRET_ARN | Existing cache AUTH secret |
-| BOOTSTRAP_RUNTIME_SECRET_ARNS | JSON list containing only those two ARNs |
-| DNS_ZONE_NAME | Real owned parent zone |
-| PUBLIC_DOMAIN_NAME | Real public app hostname |
-| ADMIN_DOMAIN_NAME | Real admin hostname |
-| MONGODB_ALLOWED_CIDRS | JSON list of actual managed MongoDB destination ranges, default [] |
-| ENABLE_ARGOCD_BOOTSTRAP | Initially false; true after initial EKS apply |
-| ENABLE_GITOPS_ROOT | Initially false; true after GitOps platform PR merge |
-| AUTOMATION_APP_ID | GitHub App installed on badminton-gitops |
-
-Set `AUTOMATION_APP_PRIVATE_KEY` as a protected environment secret. The dispatch App needs only the permission required for repository_dispatch on `badminton-gitops` (repository Contents write). Give the GitOps PR automation the separately described read/proposal permissions there; use separate Apps if deployment governance requires stricter separation.
-
-The OIDC plan subject is limited to this repository's pull requests; fork PRs are skipped. Treat same-repository PR authors as trusted AWS state readers: speculative Terraform can read its allowed secret/state data. Bootstrap's general plan role has broad AWS ReadOnlyAccess plus native lockfile write access, not cloud mutation rights. Terraform plan requires existing bootstrap/domain dependencies; the first deployment must use the documented phase order.
+The workflows in `.github/workflows/` match the MaintAI 4-root gated CI/CD architecture (`ci.yml`, `terraform-plan.yml`, `apply.yml`).
 
 ## Workflows
 
-- `terraform.yml`: PR format/init/validate/TFLint/security scan/speculative plan. Never applies. Actual Terraform plans can contain sensitive material even when CLI redacts it; no binary plan or raw outputs are uploaded.
-- `production-infra.yml`: main changes or manual main dispatch; detects roots; bootstrap changes cascade through domain/platform, domain changes through platform. Production concurrency serializes applies.
-- `reusable-foundation.yml`: uses migrated remote bootstrap state; creates the backend declaration from the example. It is not an empty-account initializer.
-- `reusable-domain.yml`: plans/applies the domain root after protected approval.
-- `reusable-platform.yml`: refreshes a plan after environment approval, applies that plan, builds a non-secret contract and uploads only the contract artifact.
-- `reusable-platform-handoff.yml`: validates contract metadata, creates a short-lived GitHub App token and dispatches `platform-contract-v1` to GitOps. It never invokes kubectl.
+1. **`ci.yml`** (on `push` / `pull_request` / `workflow_dispatch`):
+   - Runs `python scripts/source_policy.py` to enforce zero `most_recent = true`, zero `aws_secretsmanager_secret_version`, and locked Terraform/chart versions.
+   - Runs `terraform fmt -check -recursive` across `terraform/`.
+   - Runs `terraform init -backend=false` + `terraform validate` across all 4 production roots (`bootstrap`, `domain`, `platform`, `argocd`) and `terraform/local`.
+   - Runs `python -m localdev.checks` and `python -m unittest discover -s local/tests -p 'test_*.py' -v`.
+2. **`terraform-plan.yml`** (on `pull_request` / `workflow_dispatch`):
+   - Runs read-only `terraform plan` using `TERRAFORM_PLAN_ROLE_ARN` via OIDC (`scripts/terraform_run.py`) against AWS-only roots (`bootstrap`, `domain`, `platform`).
+   - `terraform/argocd` live plan requires live EKS API + secret access and is performed inside the protected `apply.yml` workflow, not in PR speculative plan jobs.
+3. **`apply.yml`** (manual `workflow_dispatch` only):
+   - Requires `ENABLE_INFRA_AUTOMATION == 'true'`, branch `main`, protected GitHub Environment (`production`), and matching `expected_main_sha`.
+   - Runs an explicit fresh plan + apply for a single selected `root` (`bootstrap`, `domain`, `platform`, or `argocd`) using `TERRAFORM_APPLY_ROLE_ARN`.
 
-PR plan runners must be able to reach a live EKS API once Helm resources exist. The initial workflow uses `ubuntu-latest`; replace with your trusted VPC/static-egress runner label where required by the endpoint CIDR allow-list. Argo bootstrap grants the plan identity cluster view and read-only release-secret access in `argocd`; apply identity has cluster administration.
+## GitHub Repository & Environment Setup
 
-The initial sources and workflow security scan have not been run. The initial security ignore file waives no findings. Review the first scan, including AWS-managed encryption and the CIDR-restricted public EKS API, and address or explicitly document policy exceptions before making checks required. Branch protection and environment rules are operational configuration, not provisioned by these repositories.
+Create a protected environment named **`production`** restricted to branch `main` with manual reviewer approvals before enabling `apply.yml`.
+
+Set these non-secret GitHub Variables:
+
+| Variable | Description |
+| --- | --- |
+| `ENABLE_INFRA_AUTOMATION` | Set `true` only when ready for GitHub Actions plan/apply |
+| `AWS_REGION` | `ap-southeast-1` |
+| `TF_STATE_BUCKET` | Bootstrap-created encrypted S3 bucket |
+| `TF_STATE_KMS_KEY_ARN` | Bootstrap-created KMS key ARN |
+| `TERRAFORM_PLAN_ROLE_ARN` | Bootstrap read-only plan role ARN |
+| `TERRAFORM_APPLY_ROLE_ARN` | Bootstrap protected apply role ARN |
+| `TFVARS_BOOTSTRAP_JSON` | Non-secret JSON tfvars for `bootstrap` |
+| `TFVARS_DOMAIN_JSON` | Non-secret JSON tfvars for `domain` |
+| `TFVARS_PLATFORM_JSON` | Non-secret JSON tfvars for `platform` |
+| `TFVARS_ARGOCD_JSON` | Non-secret JSON tfvars for `argocd` |
+
+> No `AUTOMATION_APP_ID` / `AUTOMATION_APP_PRIVATE_KEY` cross-repo webhook dispatch is required by `badminton-infras`: metadata handoff uses AWS SSM Parameter Store, and image rollout PRs are proposed directly by Argo CD Image Updater (`argocd-image-updater-git-creds`) from inside the cluster.

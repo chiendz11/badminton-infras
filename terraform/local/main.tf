@@ -34,36 +34,49 @@ resource "null_resource" "k3d_cluster" {
   }
 }
 
-resource "null_resource" "secrets" {
+resource "null_resource" "platform_bootstrap" {
   depends_on = [null_resource.k3d_cluster]
-
-  provisioner "local-exec" {
-    working_dir = "${path.module}/../.."
-    command     = ".venv/bin/python -m localdev secrets"
-  }
-}
-
-resource "null_resource" "argocd" {
-  depends_on = [null_resource.secrets]
-
-  provisioner "local-exec" {
-    working_dir = "${path.module}/../.."
-    command     = ".venv/bin/python -m localdev bootstrap-argocd"
-  }
-}
-
-resource "null_resource" "argocd_sync" {
-  depends_on = [null_resource.argocd]
 
   provisioner "local-exec" {
     working_dir = "${path.module}/../.."
     command     = <<-EOT
       export KUBECONFIG="$PWD/local/.local/kubeconfig"
-      kubectl --context k3d-badminton-local -n argocd patch application badminton-local-platform \
-        --type merge -p '{"operation":{"sync":{"prune":false}}}' || true
+
+      # 1. LocalStack (Mock AWS Secrets Manager)
+      kubectl apply -f local/manifests/localstack.yaml
+      kubectl rollout status deployment/localstack -n localstack --timeout=120s
+
+      # 2. External Secrets Operator (CRDs + Controller) & LocalStack Secrets
+      helm upgrade --install external-secrets external-secrets/external-secrets \
+        -n external-secrets --create-namespace --set installCRDs=true --wait
+      kubectl set env deployment/external-secrets -n external-secrets \
+        AWS_ENDPOINT_URL=http://localstack.localstack.svc.cluster.local:4566
+      kubectl apply -f local/manifests/cluster-secret-store.yaml
+      .venv/bin/python -m localdev secrets
+
+      # 3. Ingress NGINX (Simulating AWS ALB Controller)
+      helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+        -n ingress-nginx --create-namespace \
+        --set controller.ingressClassResource.name=alb \
+        --set controller.ingressClass=alb \
+        --set controller.ingressClassResource.default=true \
+        --wait
+
+      # 4. Bootstrap Argo CD + Argo CD Image Updater & Pure Declarative local root
+      .venv/bin/python -m localdev bootstrap-argocd
+    EOT
+  }
+}
+
+resource "null_resource" "argocd_sync" {
+  depends_on = [null_resource.platform_bootstrap]
+
+  provisioner "local-exec" {
+    working_dir = "${path.module}/../.."
+    command     = <<-EOT
+      export KUBECONFIG="$PWD/local/.local/kubeconfig"
       kubectl --context k3d-badminton-local -n argocd patch application badminton-local-apps \
         --type merge -p '{"operation":{"sync":{"prune":false}}}' || true
     EOT
   }
 }
-

@@ -25,7 +25,7 @@ resource "aws_db_instance" "postgres" {
   for_each                    = local.postgres_services
   identifier                  = "${local.name}-${each.key}"
   engine                      = "postgres"
-  engine_version              = "16"
+  engine_version              = var.postgres_engine_version
   instance_class              = var.db_instance_class
   allocated_storage           = var.db_allocated_storage
   max_allocated_storage       = var.db_allocated_storage * 5
@@ -43,5 +43,7 @@ resource "aws_db_instance" "postgres" {
   skip_final_snapshot         = false
   final_snapshot_identifier   = "${local.name}-${each.key}-final"
   copy_tags_to_snapshot       = true
-  auto_minor_version_upgrade  = true
+  auto_minor_version_upgrade  = false
+  allow_major_version_upgrade = false
+  lifecycle { prevent_destroy = true }
 }

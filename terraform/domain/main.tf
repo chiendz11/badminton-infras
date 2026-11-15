@@ -16,7 +16,7 @@ resource "aws_route53_record" "validation" {
   type            = each.value.resource_record_type
   records         = [each.value.resource_record_value]
   ttl             = 60
-  allow_overwrite = true
+  allow_overwrite = false
 }
 resource "aws_acm_certificate_validation" "public" {
   count                   = var.wait_for_certificate_validation ? 1 : 0

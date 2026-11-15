@@ -1,69 +1,58 @@
 # Badminton Local — k3d Bootstrap & Argo CD GitOps
 
-Phiên bản hạ tầng local **1.0.0** cho hệ thống Badminton Manager V2, xây dựng theo kiến trúc phân tách ranh giới của MaintAI:
-- `terraform/platform/`: Quản lý hạ tầng AWS EKS / RDS / VPC Production.
-- `terraform/local/`: Terraform module khởi tạo cụm k3d local và tích hợp GitOps.
-- `local/`: Cấu hình cluster k3d, tool pins, contract, settings, và receipts.
-- `localdev/`: Bộ công cụ tự động hóa CLI (init, up, secrets, build, import, bootstrap, migrate, status).
+Phiên bản hạ tầng local cho hệ thống **Badminton Manager V2**, đồng bộ theo mô hình **Pure Declarative GitOps + Argo CD Image Updater v1.5.0** của MaintAI:
+- `terraform/bootstrap`, `terraform/domain`, `terraform/platform`, `terraform/argocd`: 4 state roots AWS Production.
+- `terraform/local/`: Terraform module khởi tạo cụm `k3d` local và bootstrap Argo CD GitOps.
+- `local/`: Cấu hình cluster `k3d`, `platform.lock.json`, `app-source.lock.json`, `contract.json`, `settings.example.json`, `LocalStack`, và unit tests (`local/tests/`).
+- `localdev/`: CLI Python (`init`, `up`, `secrets`, `build`, `import-images`, `bootstrap-argocd`, `image-updater-pat`, `migrate`, `status`, `delete`).
 
 ---
 
-## 1. Phân chia trách nhiệm giữa các Repository
+## 1. Phân chia trách nhiệm giữa 3 Repository
 
-| Nơi sở hữu | Trách nhiệm |
+| Repository | Trách nhiệm |
 |---|---|
-| `badminton-infras` (repo này) | Khởi tạo cụm `k3d-badminton-local`, kubeconfig riêng (`local/.local/kubeconfig`), namespaces (`badminton`, `argocd`), Kubernetes Secrets, bootstrap Argo CD, thực thi DB migration jobs. |
-| `../badminton-gitops` | Khai báo trạng thái mong muốn (Desired State) trong Kubernetes: PostgreSQL datastore (`environments/local/platform`) và các microservices / frontend workloads (`environments/local/apps`) kéo image từ GHCR. |
-| `../badminton-system` | Mã nguồn ứng dụng (Booking Core, AI Service, API Gateway, Web Frontend, Admin Frontend, Prisma migrations, Alembic migrations). CI tự động đóng gói và đẩy image lên GitHub Container Registry (`ghcr.io/chiendz11`). |
+| `badminton-infras` (repo này) | Khởi tạo cụm `k3d-badminton-local`, kubeconfig riêng (`local/.local/kubeconfig`), namespaces (`badminton`, `argocd`, `observability`, `external-secrets`, `ingress-nginx`), LocalStack + `ClusterSecretStore/aws-secrets-manager`, Secrets Manager seeds, bootstrap Argo CD, secret `argocd-image-updater-git-creds` (`make local-image-updater-pat`), và chạy DB migrations. |
+| `../badminton-gitops` | Pure Declarative Kustomize (`bootstrap/local` -> `applications/local`): Local PostgreSQL/Mongo/Redis/RabbitMQ, Ingress + NetworkPolicies, `external-secrets` / `ingress-nginx` / `argocd-image-updater` addons, `ImageUpdater` CRD `badminton-local`, và toàn bộ `environments/local/apps`. |
+| `../badminton-system` (`38b4a74cea88d69c271b3a4608b5e38754797b86`) | Mã nguồn ứng dụng + Dockerfile + migrations. CI đóng gói và đẩy image tag bất biến `sha-<40>` lên GHCR (`ghcr.io/chiendz11/badminton-*`). |
 
 ---
 
-## 2. Chuẩn bị môi trường
+## 2. Yêu cầu môi trường
 
-Yêu cầu trên máy tính cá nhân:
-- **Docker Engine**: `>= 24.0` (đang chạy: `sudo systemctl start docker`)
+- **Docker Engine**: `>= 24.0`
 - **k3d**: `v5.9.0`
-- **kubectl**: Tương thích Kubernetes `1.35` / `1.36`
-- **Python**: `>= 3.11`
-- **Terraform**: `>= 1.5.0`
+- **kubectl**: tương thích Kubernetes `1.35` / `1.36` (Kustomize tích hợp `>= 5.8`)
+- **Python**: `>= 3.12`
+- **Terraform**: `>= 1.15.6, < 1.16.0` (`.terraform-version` = `1.15.6`)
 
 ---
 
 ## 3. Khởi chạy nhanh (Runbook)
 
-### Cách 1: Sử dụng Terraform 1-Click (Khuyên dùng — Local Staging kéo từ GHCR)
-
-Hệ thống tự động kéo các Docker images Public từ `ghcr.io/chiendz11/badminton-...:latest` do CI/CD phát hành:
+### Cách 1: Terraform 1-Click + GitOps PR Automation (GHCR `sha-<40>`)
 
 ```bash
-# 1. Khởi tạo cụm k3d, nạp secrets và bootstrap Argo CD
-cd terraform/local
-terraform init
-terraform apply -auto-approve
+# 1. Khởi tạo cụm k3d, LocalStack, ClusterSecretStore, secrets và bootstrap Argo CD
+terraform -chdir=terraform/local init
+terraform -chdir=terraform/local apply -auto-approve
 
-# 2. Quay lại thư mục gốc chạy migration và nạp seed data
-cd ../..
+# 2. Nạp Fine-grained GitHub PAT cho Argo CD Image Updater (tự động mở PR vào badminton-gitops khi có image sha-* mới)
+GITHUB_PAT=ghp_xxx make local-image-updater-pat
+
+# 3. Chạy migrations & kiểm tra trạng thái
 make local-migrate
-
-# 3. Kiểm tra trạng thái các Pods
 make local-status
 ```
 
-### Cách 2: Chế độ Phát triển Offline (Inner-Loop Dev)
-
-Dành cho khi bạn đang sửa code dở dang trên máy và muốn kiểm thử ngay mà không cần commit/push lên GitHub:
+### Cách 2: Phát triển Offline (Inner-Loop Dev)
 
 ```bash
-# 1. Khởi tạo môi trường ảo và cụm k3d
 make local-init
 make local-up
 make local-secrets
-
-# 2. Build và nạp image trực tiếp từ mã nguồn local vào k3d cache
 make local-build
 make local-import
-
-# 3. Bootstrap Argo CD và chạy migrations
 make local-bootstrap-argocd
 make local-migrate
 make local-status
@@ -71,25 +60,32 @@ make local-status
 
 ---
 
-## 4. Các điểm truy cập dịch vụ Local (Ingress ALB & Loopback)
+## 4. Điểm truy cập dịch vụ Local
 
-### Tên miền Ingress (Chuẩn ALB Routing - Khuyên dùng)
-Ánh xạ vào `/etc/hosts`: `172.24.0.2 web.badminton.local admin.badminton.local api.badminton.local`
+### Ingress Hostnames (`/etc/hosts`)
+Ánh xạ `172.24.0.2 web.badminton.local admin.badminton.local api.badminton.local`:
 - **Web Frontend**: `http://web.badminton.local`
 - **Admin Frontend**: `http://admin.badminton.local`
 - **API Gateway**: `http://api.badminton.local/health/ready`
 
-### Cổng Host Loopback NodePort Truyền thống
-| Dịch vụ | Cổng Host Loopback | Cổng Container / NodePort | Mô tả |
+### Host Loopback NodePorts
+| Dịch vụ | Host Loopback | Container / NodePort | Mô tả |
 |---|---|---|---|
-| **API Gateway** | `http://127.0.0.1:18081` | NodePort `30081` / Port `8081` | REST Gateway điều phối Booking & AI |
-| **Web Frontend** | `http://127.0.0.1:18082` | NodePort `30082` / Port `80` | Giao diện đặt sân cho người dùng |
-| **Admin Frontend**| `http://127.0.0.1:18083` | NodePort `30083` / Port `80` | Giao diện quản trị sân cầu lông |
-| **Argo CD UI** | `https://127.0.0.1:19445` | NodePort `30443` / Port `443` | Giao diện điều khiển GitOps Argo CD |
-| **PostgreSQL** | `127.0.0.1:15432` | NodePort `30432` / Port `5432` | CSDL Booking (`booking`) & AI (`ai`) |
+| **API Gateway** | `http://127.0.0.1:18081` | NodePort `30081` / `8081` | REST Gateway điều phối |
+| **Web Frontend** | `http://127.0.0.1:18082` | NodePort `30082` / `80` | Web người dùng |
+| **Admin Frontend** | `http://127.0.0.1:18083` | NodePort `30083` / `80` | Web quản trị |
+| **Argo CD UI** | `https://127.0.0.1:19445` | NodePort `30443` / `443` | Argo CD UI |
+| **PostgreSQL** | `127.0.0.1:15432` | NodePort `30432` / `5432` | CSDL Booking & AI |
 
 ---
 
-## 5. Tài liệu Kiến trúc Đám mây Mở rộng
-Xem chi tiết phân tích so sánh đối chiếu giữa môi trường k3d local và Production AWS tại:
-👉 [`docs/LOCAL_VS_AWS_CLOUD_PARITY.md`](../docs/LOCAL_VS_AWS_CLOUD_PARITY.md)
+## 5. Offline Validation & Unit Tests
+
+```bash
+python3 scripts/source_policy.py
+terraform fmt -check -recursive terraform/
+python3 -m localdev.checks --app-root ../badminton-system
+python3 -m unittest discover -s local/tests -p 'test_*.py' -v
+```
+
+Xem thêm đối chiếu Local vs Cloud tại [`docs/LOCAL_VS_AWS_CLOUD_PARITY.md`](../docs/LOCAL_VS_AWS_CLOUD_PARITY.md).

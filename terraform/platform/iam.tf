@@ -66,6 +66,17 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.service_account["ebs_csi"].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
+resource "aws_iam_role_policy" "image_updater_ecr" {
+  name = "read-ecr-repositories"
+  role = aws_iam_role.service_account["image_updater"].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
+      { Effect = "Allow", Action = ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage", "ecr:DescribeImages", "ecr:ListImages"], Resource = [for repo in aws_ecr_repository.services : repo.arn] }
+    ]
+  })
+}
 data "aws_iam_policy_document" "publisher_trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -104,7 +115,7 @@ resource "aws_iam_role_policy" "app_publisher" {
   role   = aws_iam_role.app_publisher.id
   policy = data.aws_iam_policy_document.publisher.json
 }
-data "aws_iam_policy_document" "gitops_verifier_trust" {
+data "aws_iam_policy_document" "gitops_reader_trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
@@ -119,17 +130,17 @@ data "aws_iam_policy_document" "gitops_verifier_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.gitops_repository}:environment:production-automation"]
+      values   = ["repo:${var.gitops_repository}:ref:refs/heads/main"]
     }
   }
 }
-resource "aws_iam_role" "gitops_verifier" {
-  name               = "${local.name}-gitops-release-verifier"
-  assume_role_policy = data.aws_iam_policy_document.gitops_verifier_trust.json
+resource "aws_iam_role" "gitops_reader" {
+  name               = "${local.name}-gitops-reader"
+  assume_role_policy = data.aws_iam_policy_document.gitops_reader_trust.json
 }
-resource "aws_iam_role_policy" "gitops_verifier" {
+resource "aws_iam_role_policy" "gitops_reader" {
   name = "inspect-project-images"
-  role = aws_iam_role.gitops_verifier.id
+  role = aws_iam_role.gitops_reader.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

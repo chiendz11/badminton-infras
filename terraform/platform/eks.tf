@@ -12,14 +12,17 @@ module "eks" {
   control_plane_subnet_ids     = module.vpc.private_subnets
   enabled_log_types            = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
   addons = {
-    coredns    = { most_recent = true }
-    kube-proxy = { most_recent = true }
+    coredns    = { addon_version = var.eks_addon_versions["coredns"] }
+    kube-proxy = { addon_version = var.eks_addon_versions["kube-proxy"] }
     vpc-cni = {
-      most_recent          = true
+      addon_version        = var.eks_addon_versions["vpc-cni"]
       before_compute       = true
       configuration_values = jsonencode({ enableNetworkPolicy = "true" })
     }
-    eks-pod-identity-agent = { most_recent = true, before_compute = true }
+    eks-pod-identity-agent = {
+      addon_version  = var.eks_addon_versions["eks-pod-identity-agent"]
+      before_compute = true
+    }
   }
   access_entries = {
     terraform_plan = {

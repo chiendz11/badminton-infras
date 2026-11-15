@@ -1,0 +1,6 @@
+aws_region            = "ap-southeast-1"
+state_bucket_name     = "REPLACE_WITH_STATE_BUCKET"
+state_kms_key_arn     = "REPLACE_WITH_STATE_KMS_KEY_ARN"
+gitops_repository_url = "https://github.com/chiendz11/badminton-gitops.git"
+gitops_revision       = "main"
+enable_gitops_root    = false

@@ -1,0 +1,46 @@
+crds:
+  install: true
+  keep: true
+configs:
+  cm:
+    admin.enabled: false
+    exec.enabled: false
+    application.resourceTrackingMethod: annotation
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = "Waiting for child Application"
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then hs = obj.status.health end
+        if obj.status.sync ~= nil and obj.status.sync.status ~= "Synced" then
+          hs.status = "Progressing"
+        end
+      end
+      return hs
+  params:
+    controller.status.processors: '5'
+    controller.operation.processors: '3'
+    controller.kubectl.parallelism.limit: '5'
+  rbac:
+    policy.default: ''
+    policy.csv: |
+      g, badminton-platform-admins, role:admin
+dex:
+  enabled: false
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: '2'
+      memory: 2Gi
+server:
+  replicas: 1
+  service:
+    type: ClusterIP
+repoServer:
+  replicas: 1
+redis-ha:
+  enabled: false
