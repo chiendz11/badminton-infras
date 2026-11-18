@@ -237,6 +237,8 @@ def bootstrap_argocd():
     if not advertised or advertised[0] != head:
         raise ValueError("Remote branch does not contain the reviewed local HEAD")
     required = (
+        "bootstrap/local/kustomization.yaml",
+        "bootstrap/local/root.yaml",
         "applications/local/kustomization.yaml",
         "applications/local/image-updater.yaml",
         "applications/local/image-updater-git-creds.yaml",
@@ -282,8 +284,8 @@ def bootstrap_argocd():
     kube("rollout", "status", "deployment/localstack", "--timeout=120s", namespace="localstack")
     seed_localstack_secrets()
 
-    local_apps = gitops / "applications/local"
-    kube("apply", "-k", str(local_apps), namespace="argocd")
+    local_bootstrap = gitops / "bootstrap/local"
+    kube("apply", "-k", str(local_bootstrap), namespace="argocd")
     kube(
         "patch",
         "svc",
@@ -293,7 +295,7 @@ def bootstrap_argocd():
         "-p",
         '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "protocol": "TCP", "targetPort": 8080}, {"name": "https", "port": 443, "protocol": "TCP", "targetPort": 8080, "nodePort": 30443}]}}',
     )
-    print("Argo CD + Argo CD Image Updater follow static local applications in badminton-gitops.")
+    print("Argo CD App-of-Apps root applied; Argo CD + Image Updater follow Pure Declarative GitOps in badminton-gitops.")
 
 
 def migrate():

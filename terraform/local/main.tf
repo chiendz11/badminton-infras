@@ -54,15 +54,7 @@ resource "null_resource" "platform_bootstrap" {
       kubectl apply -f local/manifests/cluster-secret-store.yaml
       .venv/bin/python -m localdev secrets
 
-      # 3. Ingress NGINX (Simulating AWS ALB Controller)
-      helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-        -n ingress-nginx --create-namespace \
-        --set controller.ingressClassResource.name=alb \
-        --set controller.ingressClass=alb \
-        --set controller.ingressClassResource.default=true \
-        --wait
-
-      # 4. Bootstrap Argo CD + Argo CD Image Updater & Pure Declarative local root
+      # 3. Bootstrap Argo CD + Argo CD Image Updater & Pure Declarative local App-of-Apps root
       .venv/bin/python -m localdev bootstrap-argocd
     EOT
   }
@@ -75,6 +67,8 @@ resource "null_resource" "argocd_sync" {
     working_dir = "${path.module}/../.."
     command     = <<-EOT
       export KUBECONFIG="$PWD/local/.local/kubeconfig"
+      kubectl --context k3d-badminton-local -n argocd patch application badminton-local-root \
+        --type merge -p '{"operation":{"sync":{"prune":false}}}' || true
       kubectl --context k3d-badminton-local -n argocd patch application badminton-local-apps \
         --type merge -p '{"operation":{"sync":{"prune":false}}}' || true
     EOT
