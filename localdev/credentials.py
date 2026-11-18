@@ -26,6 +26,7 @@ def initialize():
                 "booking_password": "booking_dev",
                 "ai_password": "ai_dev",
                 "identity_password": "identity_dev",
+                "commerce_password": "commerce_dev",
                 "admin_password": secrets.token_hex(24),
             },
             "jwt_secret": secrets.token_hex(32),
@@ -112,16 +113,23 @@ def seed_localstack_secrets():
     booking_pw = creds["postgres"].get("booking_password", "booking_dev")
     ai_pw = creds["postgres"].get("ai_password", "ai_dev")
     identity_pw = creds["postgres"].get("identity_password", "identity_dev")
+    commerce_pw = creds["postgres"].get("commerce_password", "commerce_dev")
     metrics_token = creds.get("metrics_token", "local-monitoring-only")
     internal_token = creds.get("internal_service_token", "local-internal-token")
 
     booking_db_url = f"postgresql://booking:{booking_pw}@postgres:5432/booking"
     ai_db_url = f"postgresql+psycopg://ai:{ai_pw}@postgres:5432/ai"
     identity_db_url = f"postgresql://identity:{identity_pw}@postgres:5432/identity?connect_timeout=3&pool_timeout=3"
+    commerce_db_url = f"postgresql://commerce:{commerce_pw}@postgres:5432/commerce?connect_timeout=3&pool_timeout=3"
 
     secrets_to_seed = {
         "badminton/prod/llm": {
             "api_key": creds.get("llm_api_key", "gsk_localmockdemo"),
+        },
+        "badminton/prod/cloudinary": {
+            "cloud_name": "local-mock-cloud",
+            "api_key": "local-cloudinary-api-key",
+            "api_secret": "local-cloudinary-api-secret",
         },
         "badminton/prod/ai-service-runtime": {
             "jwt_secret": jwt_secret,
@@ -154,6 +162,33 @@ def seed_localstack_secrets():
             "metrics_token": metrics_token,
             "internal_service_token": internal_token,
             "mongodb_uri": "mongodb://mongo:27017/badminton_content",
+        },
+        "badminton/prod/commerce-service-runtime": {
+            "jwt_secret": jwt_secret,
+            "metrics_token": metrics_token,
+            "internal_service_token": internal_token,
+            "database_url": commerce_db_url,
+            "rabbitmq_url": "amqp://guest:guest@rabbitmq:5672/",
+        },
+        "badminton/prod/social-service-runtime": {
+            "jwt_secret": jwt_secret,
+            "metrics_token": metrics_token,
+            "internal_service_token": internal_token,
+            "mongodb_uri": "mongodb://mongo:27017/badminton_social",
+            "redis_url": "redis://redis:6379/0",
+        },
+        "badminton/prod/notification-service-runtime": {
+            "jwt_secret": jwt_secret,
+            "metrics_token": metrics_token,
+            "internal_service_token": internal_token,
+            "mongodb_uri": "mongodb://mongo:27017/badminton_notification",
+            "rabbitmq_url": "amqp://guest:guest@rabbitmq:5672/",
+        },
+        "badminton/prod/storage-service-runtime": {
+            "jwt_secret": jwt_secret,
+            "metrics_token": metrics_token,
+            "internal_service_token": internal_token,
+            "mongodb_uri": "mongodb://mongo:27017/badminton_storage",
         },
         "badminton/prod/payos": {
             "client_id": creds.get("payos", {}).get("client_id", "local-payos-client-id"),

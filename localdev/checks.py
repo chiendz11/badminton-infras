@@ -51,6 +51,8 @@ def check(app=None, companion=None) -> None:
         verify_application_source(app, read(ROOT / "local/versions/app-source.lock.json"))
     if companion:
         required = (
+            "bootstrap/local/kustomization.yaml",
+            "bootstrap/local/root.yaml",
             "applications/local/kustomization.yaml",
             "applications/local/image-updater.yaml",
             "applications/local/image-updater-git-creds.yaml",
