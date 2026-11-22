@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "source_repository": "chiendz11/badminton_system",
-  "source_git_sha": "4192012f110d4c8fa022332770a31e50c4cd07d6",
-  "captured_on": "2026-11-18",
+  "source_git_sha": "e033577779bcc903600f23b5a2487d2eccea4ab1",
+  "captured_on": "2026-11-22",
   "files": {
     "services/booking-core/Dockerfile": "a37977e0288a9d7190129be151d7a93f6d8193e3d158ee6852e47f8417a208fc",
     "services/ai-service/Dockerfile": "1c33de1b9bf0fd593cd50731fddeba531847ae6bf58573a6ed078cf430a85654",
@@ -11,7 +11,7 @@
     "services/identity/Dockerfile": "d9f4da055b8c1e1e2301e2ed129b3f67d688d65242abea93de97b72ffe46505a",
     "apps/web/Dockerfile": "4a6cbc4c37edbcb328400bfc939b405b1012d4cc9d1ccefe932fe3572cc18eb2",
     "apps/admin/Dockerfile": "07a2a90ef821a79e9c57a6eebed57e8ca2aec407dee9d020edce79dd6b7af839",
-    "compose.yml": "5d6edf77f841cb9380987fb10f7e8482056bb49b876d88e060f0c98081ecaeaf",
+    "compose.yml": "2a4d9bc1605e8b9de65cd241de63d9f1a8cae2cc68bb4719198e7ed806c075d3",
     "pnpm-workspace.yaml": "e196253288356a3b78d2d88daf6bfd2e70eb519a4dd36ddbbece029420dbd993",
     "package.json": "fd922c20f8e50153200daaad483d17da8ab4810c80e0bf9c375891e6d2bee5a5"
   },

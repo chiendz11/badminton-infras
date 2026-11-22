@@ -156,6 +156,7 @@ def seed_localstack_secrets():
             "metrics_token": metrics_token,
             "internal_service_token": internal_token,
             "database_url": identity_db_url,
+            "rabbitmq_url": "amqp://guest:guest@rabbitmq:5672/",
         },
         "badminton/prod/content-service-runtime": {
             "jwt_secret": jwt_secret,
@@ -269,6 +270,7 @@ def install_secrets():
             "JWT_SECRET": jwt_secret,
             "METRICS_TOKEN": metrics_token,
             "INTERNAL_SERVICE_TOKEN": internal_token,
+            "RABBITMQ_URL": "amqp://guest:guest@rabbitmq:5672/",
         },
         "content-service-secrets": {
             "JWT_SECRET": jwt_secret,
